@@ -13,10 +13,11 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             min-height: 100vh;
             margin: 0;
-            overflow: hidden;
+            padding: 10px 0;
+            overflow: auto;
             user-select: none;
             -webkit-user-select: none;
         }
@@ -32,8 +33,6 @@
             border: 4px solid #bdc3c7;
             background-color: #2c3e50; /* Slightly lighter dark for contrast */
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            max-width: 90vw;
-            max-height: 50vh;
             touch-action: none;
         }
 
@@ -134,7 +133,7 @@
 
     <h1>Dots <span class="highlight">&</span> Dashes</h1>
     
-    <canvas id="game-board" width="400" height="400"></canvas>
+    <canvas id="game-board"></canvas>
     
     <div class="stats">
         <span>Score: <span id="score">0</span></span>
@@ -162,7 +161,7 @@
 
         // Game Settings
         const gridSize = 20; // Size of one square
-        const tileCount = canvas.width / gridSize;
+        let tileCount; // Will be calculated dynamically
         
         // Game State
         let score = 0;
@@ -182,12 +181,46 @@
         let foodX;
         let foodY;
 
+        // Function to calculate and set canvas size based on viewport
+        function resizeCanvas() {
+            // Get viewport dimensions
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            // Reserve space for header, stats, controls, and padding
+            const headerHeight = 60;  // Approximate height for title
+            const statsHeight = 40;   // Approximate height for stats
+            const controlsHeight = window.innerWidth <= 600 ? 200 : 0; // D-pad on mobile
+            const paddingTotal = 40;  // Total vertical padding
+            
+            // Calculate available space
+            const availableHeight = viewportHeight - headerHeight - statsHeight - controlsHeight - paddingTotal;
+            const availableWidth = viewportWidth - 40; // Leave some horizontal padding
+            
+            // Use the smaller dimension to ensure canvas fits and is square
+            const maxSize = Math.min(availableWidth, availableHeight, 600); // Cap at 600px max
+            
+            // Make sure size is at least 200px and divisible by gridSize for clean grid
+            let canvasSize = Math.max(200, Math.floor(maxSize / gridSize) * gridSize);
+            
+            // Set canvas dimensions
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            
+            // Update tileCount based on new canvas size
+            tileCount = canvas.width / gridSize;
+        }
+
         // Initialize Game
         function init() {
+            // Size canvas before starting game
+            resizeCanvas();
+            
             snake = [];
             // Start in the middle
+            const startPos = Math.floor(tileCount / 2);
             for(let i = 0; i < snakeLength; i++) {
-                snake.push({x: 10, y: 10});
+                snake.push({x: startPos, y: startPos});
             }
             xv = 1; // Start moving right
             yv = 0;
@@ -198,6 +231,28 @@
             updateStats();
             startGameLoop();
         }
+
+        // Handle window resize and orientation change
+        let resizeTimeout;
+        function handleResize() {
+            // Debounce resize to avoid too many recalculations
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const oldTileCount = tileCount;
+                resizeCanvas();
+                
+                // If tileCount changed significantly, restart the game
+                if (Math.abs(tileCount - oldTileCount) > 2) {
+                    init();
+                } else {
+                    // Just redraw with new canvas size
+                    draw();
+                }
+            }, 250);
+        }
+
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
 
         function startGameLoop() {
             if (gameLoop) clearInterval(gameLoop);
